@@ -1,0 +1,438 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Going event-driven with Kafka in two weeks - Part II - Alex Rodrigues</title>
+  <meta name="author" content="Alex Rodrigues">
+
+  
+  <meta name="description" content="In the first part, I&rsquo;ve described the motivations and requirements for the transition into a event-driven architecture. In this post, I am &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Alex Rodrigues" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-18911417-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Alex Rodrigues</a></h1>
+  
+    <h2>Data science, distributed systems and big data</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:deorus.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Going Event-driven With Kafka in Two Weeks - Part II</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-07-04T18:03:00+01:00" pubdate data-updated="true">Jul 4<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In the <a href="/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/">first part</a>, I&rsquo;ve described the motivations and requirements for the transition into a event-driven architecture. In this post, I am going to talk about how to perform distributed counting and how Kafka partitioning is handy for this kind of task.</p>
+
+<h2>Online group-by operations</h2>
+
+<p>As mentioned on <a href="/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/">part one</a>, each consumer will receive messages from a set of partitions in a way that each partition will have only one consumer. The subscriber process can then have a consumer stream per thread and can co-operate with other instances running on other machines by defining each consumer to belong to the same consumer group. There no gain on having the total number of threads in the consumer cluster higher than the number of partitions, as each partition will comunicate at most through one consumer stream.</p>
+
+<!-- more -->
+
+
+<p><img src="/images/kafka_subscriber_cluster1.png" width="350" title="A Kafka stream with more than one partition" >
+<img src="/images/kafka_subscriber_cluster2.png" width="350" title="A Kafka subscriber cluster with spare threads" ></p>
+
+<p>Each consumer thread receives a message from a partition. The message is parsed into a POJO that will be a key to a counting hash map.</p>
+
+<figure class='code'><figcaption><span>Parsing a message from Kafka stream. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">ConsumerIterator</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">[],</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">value</span> <span class="o">=</span> <span class="k">new</span> <span class="n">String</span><span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">().</span><span class="na">message</span><span class="o">());</span>
+</span><span class='line'>  <span class="kd">final</span> <span class="n">String</span><span class="o">[]</span> <span class="n">tokens</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="s">&quot;;&quot;</span><span class="o">,</span> <span class="o">-</span><span class="mi">1</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">// ...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The example above shows how to parse a message, assuming it&rsquo;s a comma-separated value string. To create a compatible system with the existing log based solution and for debugging purposes, we first adopt the old CSV as message format. However, other solutions exist such as <a href="https://code.google.com/p/kryo/">Kryo</a>, <a href="http://avro.apache.org/">Avro</a> and <a href="http://thrift.apache.org/">Thrift</a>.</p>
+
+<p>The parsed POJO is the counter key and it has a custom hashCode method implementation. The hashCode is invoked by the Java&rsquo;s HashMap and it uses the returning value to locate the value internally. When more than one entry exists with the same hashCode, the equals method is used to determine the equality to the query key.</p>
+
+<p>To aggregate the counts by a set of attributes, we can use the hashCode and equals methods. These methods must have a consistent behaviour considering two objects to be equal if the set of group-by attributes have identical values in both. The hashCode calculation has to take this values into account, as shown in the snippet below.</p>
+
+<figure class='code'><figcaption><span>Example of a GroupBy by hour and category. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">org.apache.commons.lang3.builder.EqualsBuilder</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.commons.lang3.builder.HashCodeBuilder</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">SaleEventByHourAndCategory</span> <span class="kd">extends</span> <span class="n">SaleEvent</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">static</span> <span class="kd">final</span> <span class="n">TimeZone</span> <span class="n">GMT_TZ</span> <span class="o">=</span> <span class="n">TimeZone</span><span class="o">.</span><span class="na">getTimeZone</span><span class="o">(</span><span class="s">&quot;GMT:00&quot;</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">protected</span> <span class="n">Long</span> <span class="nf">getHour</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>      <span class="c1">// consider move this to a Util class</span>
+</span><span class='line'>      <span class="n">Calendar</span> <span class="n">calendar</span> <span class="o">=</span> <span class="n">Calendar</span><span class="o">.</span><span class="na">getInstance</span><span class="o">(</span><span class="n">GMT_TZ</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">setTime</span><span class="o">(</span><span class="k">new</span> <span class="n">Date</span><span class="o">(</span><span class="n">getUnixTimestamp</span><span class="o">()));</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">MINUTE</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">SECOND</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">MILLISECOND</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">return</span> <span class="n">Long</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">calendar</span><span class="o">.</span><span class="na">getTime</span><span class="o">().</span><span class="na">getTime</span><span class="o">());</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nd">@Override</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="kt">int</span> <span class="nf">hashCode</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">return</span> <span class="k">new</span> <span class="nf">HashCodeBuilder</span><span class="o">()</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getHour</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getCategoryId</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">hashCode</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nd">@Override</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span><span class="n">obj</span> <span class="k">instanceof</span> <span class="n">SaleEventByHourAndCategory</span> <span class="o">==</span> <span class="kc">false</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+</span><span class='line'>      <span class="o">}</span> <span class="k">if</span> <span class="o">(</span><span class="k">this</span> <span class="o">==</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+</span><span class='line'>      <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="kd">final</span> <span class="n">SaleEventByHourAndCategory</span> <span class="n">otherObject</span> <span class="o">=</span> <span class="o">(</span><span class="n">SaleEventByHourAndCategory</span><span class="o">)</span> <span class="n">obj</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">return</span> <span class="k">new</span> <span class="nf">EqualsBuilder</span><span class="o">()</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getHour</span><span class="o">(),</span> <span class="n">otherObject</span><span class="o">.</span><span class="na">getHour</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getCategoryId</span><span class="o">(),</span> <span class="n">otherObject</span><span class="o">.</span><span class="na">getCategoryId</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">isEquals</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The implementation of hashCode and equals use the <a href="http://commons.apache.org/proper/commons-lang/">Apache Commons Lang</a> library.</p>
+
+<h2>Counter Map Implementations</h2>
+
+<p>Each consumer thread will count the events in a shared data structure, to avoid spending too much memory with multiple duplicated entries in each thread&rsquo;s counter map. <a href="http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ConcurrentHashMap.html">ConcurrentHashMap</a> is a native JVM implementation that aims to reduce contention by splitting the key space in blocks. Each block will have a lock to control the write accesses.</p>
+
+<p>Other alternative HashMap implementation is the <a href="http://www.cs.rice.edu/~javaplt/javadoc/concjunit4.7/org/cliffc/high_scale_lib/NonBlockingHashMap.html">NonBlockingHashMap</a>, written by <a href="http://www.azulsystems.com/">Azul System</a>&rsquo;s Dr. Cliff Click, is an implementation that doesn&rsquo;t assure full consistency ruturning only the result of the last completed update operation. This behaviour is lock free and leverage compare and set/swap operations to allow multiple update operations. A benchmark between both implementations can be found <a href="http://leapchasm.com/blog/2012/02/10/concurrent-hashmap-benchmark/">here</a>.</p>
+
+<h2>Aggregated Result Flushing</h2>
+
+<p>The computed operations, either counts, sums or averages are hold in each subscriber process&rsquo;s memory and must be flushed to a proper persistent storage.
+We decided to continue with MySQL to avoid porting all the existent visualization tools. In a scenario of multiple instances of the subscriber process, each instance will have a partial result of the aggregated operation. If there are two processes with 20 threads each, each one will have the count for the messages received from half the partitions. Because they only know part of the result, flushing must be done using an UPDATE SQL query or an INSERT in the case of non-existence of that key. To save the check of existence, an <a href="http://dev.mysql.com/doc/refman/5.0/en/insert-on-duplicate.html">INSERT ON DUPLICATE KEY UPDATE</a> is used.</p>
+
+<p><img src="/images/kafka_results_flushing_flow.png" width="700" title="Data flow of aggregated operation results" ></p>
+
+<p>In the first experiments, the subscriber processes flushed the in-memory counts to the same database. However, some of these subscribers were consuming from a broker in Europe region and had to upload the results to a US datacenter-based MySQL instance. To optimize the flow, all the subscribers will act as producers and will publish their partial results into a separate topic. This topic will be read by a single flusher process.</p>
+
+<p>This change of approach improved the throughtput of MySQL ingestion, because less write transations fail. The flusher process executes transaction after transaction in batches of 2000 queries and has a consistent per batch execution time. The partial results publishing is done to the US broker using <a href="https://code.google.com/p/kryo/">Kryo</a> to serialize and Snappy to compress. This attempts to reduce both the bandwidth required and the latency time.</p>
+
+<p>In this post, I&rsquo;ve covered how to do group-by aggregation operations in-memory and temporarily flush them to a persistent engine, such as MySQL. In the next post I&rsquo;ll cover infrastructure matters and deployment of the Kafka stack in AWS.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Alex Rodrigues</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-07-04T18:03:00+01:00" pubdate data-updated="true">Jul 4<span>th</span>, 2013</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/kafka/'>kafka</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/" data-via="deorus" data-counturl="http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/" title="Previous Post: Going event-driven with Kafka in two weeks - Part I">&laquo; Going event-driven with Kafka in two weeks - Part I</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2014/02/12/computing-approximate-histograms-in-parallel/" title="Next Post: Computing Approximate Histograms in Parallel">Computing Approximate Histograms in Parallel &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section>
+	<span>
+		<img src="http://www.gravatar.com/avatar/d396104b8612b492d9269fbef0758991?s=200" alt="Gravatar of Alex Rodrigues " title="Gravatar of Alex Rodrigues" />
+	</span>
+</section>
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/02/28/probe-your-system-with-synthesized-realistic-data/">Probe Your System With Synthesized Realistic Data</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/02/12/computing-approximate-histograms-in-parallel/">Computing Approximate Histograms in Parallel</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/">Going Event-driven With Kafka in Two Weeks - Part II</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/">Going Event-driven With Kafka in Two Weeks - Part I</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/deorus">@deorus</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'deorus',
+            count: 0,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2015 - Alex Rodrigues -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'alexrodrigues';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/';
+        var disqus_url = 'http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

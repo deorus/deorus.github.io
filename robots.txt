@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: 
+
+Sitemap: http://deorus.github.io/sitemap.xml 

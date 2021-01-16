@@ -1,0 +1,885 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Alex Rodrigues]]></title>
+  <link href="http://deorus.github.io/atom.xml" rel="self"/>
+  <link href="http://deorus.github.io/"/>
+  <updated>2015-03-05T09:13:58+00:00</updated>
+  <id>http://deorus.github.io/</id>
+  <author>
+    <name><![CDATA[Alex Rodrigues]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Probe your system with synthesized realistic data]]></title>
+    <link href="http://deorus.github.io/blog/2015/02/28/probe-your-system-with-synthesized-realistic-data/"/>
+    <updated>2015-02-28T07:05:00+00:00</updated>
+    <id>http://deorus.github.io/blog/2015/02/28/probe-your-system-with-synthesized-realistic-data</id>
+    <content type="html"><![CDATA[<p>I wonder how ancient civilizations, that have built incredible structures, knew that once built they would remain steady. I&rsquo;m not talking about mysterious pyramids but more recent landmarks left us by romans such as roman aqueducts. How sure were they on the resiliency to nature powers, strong winds and tough winters? Well&hellip; the answer seems to be easy: with lots of theoretic work, designs and calculations.</p>
+
+<p>While this is true, things were also achieved with lots of experimentation, both on the structural side and on materials applications. That knowledge was vital to have good practices on what to use in each situation and predict maintenance and consequences in extreme conditions. The same applies to the conception of fault-tolerant reliable systems to process large volumes of data.</p>
+
+<p>Normal approaches start with mere reasonable assumptions on data volume, ingestion rate, document size, but others are hard to predict such as processing time, indexing time, etc. It really helps to know how components behave under pressure and calculate what are the limits of the current design.</p>
+
+<p>Many (self-entitled) architects like to take the designing process as cooking a big blend of hype-based technologies and it&rsquo;s very easy to get burnt. Key factors such as SLAs, peak times and hardware limitations greatly affect which components you choose to put in the pan and how would you mix them together.</p>
+
+<p>The only way to know how certain software components behave, they have to be exercised with a great volume of data, similar to the one they will process once in production. Data that can be just fed from the productions servers if it exists and if the infrastructure allows. More often than not, the data is not yet available in the target formats and there&rsquo;s the necessity of trying out with generated data in the chosen formats.</p>
+
+<!-- more -->
+
+
+<p>Whenever I want to test and benchmark the systems I&rsquo;m working on, I use a synthetic data generator called log-synth. Log synth is one of those swiss-army knives for data generation. It has plenty of generators, based on parametric statistical methods. The good part is that it&rsquo;s open-source and can be easily extended with new generating algorithms and output formats.</p>
+
+<p>The most common output formats are JSON and CSV.</p>
+
+<p>Recently I&rsquo;ve <a href="https://github.com/deorus/log-synth/commit/1a01813f038f0ec11660f46589a02ed8951249f9">added</a> a template based generator that extends the range of available output formats. It leverages the data generation algorithms that ship with it and feeds that into a templated document using <a href="http://freemarker.org/">Freemarker</a> templating language.</p>
+
+<p>To generate a sample vCard simply create a file <code>template.txt</code>:</p>
+
+<figure class='code'><figcaption><span>template.txt – template for a vCard document. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='text'><span class='line'>BEGIN:VCARD
+</span><span class='line'>VERSION:3.0
+</span><span class='line'>N:${last_name.asText()};${first_name.asText()};;${title.asText()}
+</span><span class='line'>ORG:Sample Org
+</span><span class='line'>TITLE:${title.asText()}
+</span><span class='line'>PHOTO;VALUE=URL;TYPE=GIF:http://thumbs.example.com/${filename.asText()}/${first_name.asText()?lower_case  }.gif
+</span><span class='line'>TEL;TYPE=HOME,VOICE:${phone_number.asText()}
+</span><span class='line'>ADR;TYPE=WORK:;;${address.asText()?split(&quot; &quot;)?join(&quot;;&quot;)}
+</span><span class='line'>EMAIL;TYPE=PREF,INTERNET:${first_name.asText()[0]?lower_case}${last_name.asText()?lower_case}@example.com
+</span><span class='line'>REV:${first_visit.asText()}
+</span><span class='line'>END:VCARD
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Then a schema file, let&rsquo;s call it <code>schema.txt</code>:</p>
+
+<figure class='code'><figcaption><span>schema.txt – schema for vCard document fields. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">[</span>
+</span><span class='line'>    <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="nt">&quot;dist&quot;</span><span class="p">:{</span><span class="nt">&quot;Mr&quot;</span><span class="p">:</span><span class="mf">0.5</span><span class="p">,</span> <span class="nt">&quot;Mrs.&quot;</span><span class="p">:</span><span class="mf">0.14</span><span class="p">,</span> <span class="nt">&quot;Miss&quot;</span><span class="p">:</span><span class="mf">0.36</span><span class="p">}},</span>
+</span><span class='line'>    <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;first_name&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;first&quot;</span><span class="p">},</span>
+</span><span class='line'>    <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;last_name&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;last&quot;</span><span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;filename&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span> <span class="s2">&quot;join&quot;</span><span class="p">,</span> <span class="nt">&quot;separator&quot;</span><span class="p">:</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>          <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span>
+</span><span class='line'>          <span class="nt">&quot;length&quot;</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span>
+</span><span class='line'>          <span class="nt">&quot;array&quot;</span><span class="p">:[</span>
+</span><span class='line'>              <span class="p">{</span><span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="nt">&quot;dist&quot;</span><span class="p">:{</span><span class="nt">&quot;small&quot;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span> <span class="nt">&quot;medium&quot;</span><span class="p">:</span><span class="mi">5</span><span class="p">,</span> <span class="nt">&quot;large&quot;</span><span class="p">:</span><span class="mi">2</span><span class="p">}},</span>
+</span><span class='line'>              <span class="p">{</span><span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="nt">&quot;dist&quot;</span><span class="p">:{</span><span class="nt">&quot;high&quot;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span> <span class="nt">&quot;low&quot;</span><span class="p">:</span><span class="mi">5</span><span class="p">,</span> <span class="nt">&quot;mobile&quot;</span><span class="p">:</span><span class="mi">15</span><span class="p">}}</span>
+</span><span class='line'>          <span class="p">]</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;phone_number&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span> <span class="s2">&quot;join&quot;</span><span class="p">,</span> <span class="nt">&quot;separator&quot;</span><span class="p">:</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="nt">&quot;value&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>          <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span>
+</span><span class='line'>          <span class="nt">&quot;length&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span>
+</span><span class='line'>          <span class="nt">&quot;array&quot;</span><span class="p">:[</span>
+</span><span class='line'>              <span class="p">{</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="nt">&quot;min&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="nt">&quot;max&quot;</span><span class="p">:</span> <span class="mi">999</span><span class="p">},</span>
+</span><span class='line'>              <span class="p">{</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="nt">&quot;min&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="nt">&quot;max&quot;</span><span class="p">:</span> <span class="mi">999</span><span class="p">},</span>
+</span><span class='line'>              <span class="p">{</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="nt">&quot;min&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="nt">&quot;max&quot;</span><span class="p">:</span> <span class="mi">999</span><span class="p">}</span>
+</span><span class='line'>          <span class="p">]</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;address&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;address&quot;</span><span class="p">},</span>
+</span><span class='line'>    <span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;first_visit&quot;</span><span class="p">,</span> <span class="nt">&quot;class&quot;</span><span class="p">:</span><span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="nt">&quot;format&quot;</span><span class="p">:</span><span class="s2">&quot;yyyy-MM-dd HH:mm:ssZ&quot;</span><span class="p">}</span>
+</span><span class='line'><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To invoke the log-synth, just do:</p>
+
+<blockquote><p>java -cp .:./target/log-synth-0.1-SNAPSHOT-jar-with-dependencies.jar com.mapr.synth.Synth -count 5000 -schema schema.txt -template template.txt -format TEMPLATE -output output/</p></blockquote>
+
+<p>The output documents will end up in the output/ folder as expected and they will look like:</p>
+
+<figure class='code'><figcaption><span>Sample generated vCard document. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='text'><span class='line'>BEGIN:VCARD
+</span><span class='line'>VERSION:3.0
+</span><span class='line'>N:Kittle;Gwendolyn;;Mr
+</span><span class='line'>ORG:Sample Org
+</span><span class='line'>TITLE:Mr
+</span><span class='line'>PHOTO;VALUE=URL;TYPE=GIF:http://thumbs.example.com/small/mobile/gwendolyn.gif
+</span><span class='line'>TEL;TYPE=HOME,VOICE:774-383-580
+</span><span class='line'>ADR;TYPE=WORK:;;18033;Quaking;Brook;Avenue
+</span><span class='line'>EMAIL;TYPE=PREF,INTERNET:gkittle@example.com
+</span><span class='line'>REV:2013-07-14 01:37:08+0100
+</span><span class='line'>END:VCARDBEGIN:VCARD
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I invite you to explore this very handy tool on <a href="https://github.com/tdunning/log-synth/">Github</a>.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Computing Approximate Histograms in Parallel]]></title>
+    <link href="http://deorus.github.io/blog/2014/02/12/computing-approximate-histograms-in-parallel/"/>
+    <updated>2014-02-12T18:03:00+00:00</updated>
+    <id>http://deorus.github.io/blog/2014/02/12/computing-approximate-histograms-in-parallel</id>
+    <content type="html"><![CDATA[<p>Today I&rsquo;m going to write a little about Approximate Histograms and how can they be used to get more insight on streamed big data feeds. I also provide a simple Java implementation and explain some parts of it.</p>
+
+<p>Most of the common aggregation operations like counting and summing can be performed in parallel, as long there is a reduce phase where the result on each node can be combined. However, this is not very trivial for calculating histograms, as we need all the data on one dimension so that we can represent it in an histogram.</p>
+
+<p>Having the data being processed by multiple nodes, each node is only able to construct an histogram of the partial data it receives. <a href="http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf">Ben-Haim and Tom-Tov</a> presented a solution that uses an heap-based data structure to represent the data and a merge algorithm that allows to merge the data structures computed on different nodes into one that is an approximate histogram of all the dataset.</p>
+
+<p>This technique has been applied by <a href="http://metamarkets.com/2013/histograms/">MetaMarkets</a> with good accuracy for most of what an histogram can tell us about the data distribution: calculating the average and counting the quartiles and total number of data/events.</p>
+
+<!-- more -->
+
+
+<p>I took the liberty of doing a simple implementation of it, that is now being used in production for some months now:</p>
+
+<figure class='code'><figcaption><span>ApproximateHistogram.java </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+<span class='line-number'>122</span>
+<span class='line-number'>123</span>
+<span class='line-number'>124</span>
+<span class='line-number'>125</span>
+<span class='line-number'>126</span>
+<span class='line-number'>127</span>
+<span class='line-number'>128</span>
+<span class='line-number'>129</span>
+<span class='line-number'>130</span>
+<span class='line-number'>131</span>
+<span class='line-number'>132</span>
+<span class='line-number'>133</span>
+<span class='line-number'>134</span>
+<span class='line-number'>135</span>
+<span class='line-number'>136</span>
+<span class='line-number'>137</span>
+<span class='line-number'>138</span>
+<span class='line-number'>139</span>
+<span class='line-number'>140</span>
+<span class='line-number'>141</span>
+<span class='line-number'>142</span>
+<span class='line-number'>143</span>
+<span class='line-number'>144</span>
+<span class='line-number'>145</span>
+<span class='line-number'>146</span>
+<span class='line-number'>147</span>
+<span class='line-number'>148</span>
+<span class='line-number'>149</span>
+<span class='line-number'>150</span>
+<span class='line-number'>151</span>
+<span class='line-number'>152</span>
+<span class='line-number'>153</span>
+<span class='line-number'>154</span>
+<span class='line-number'>155</span>
+<span class='line-number'>156</span>
+<span class='line-number'>157</span>
+<span class='line-number'>158</span>
+<span class='line-number'>159</span>
+<span class='line-number'>160</span>
+<span class='line-number'>161</span>
+<span class='line-number'>162</span>
+<span class='line-number'>163</span>
+<span class='line-number'>164</span>
+<span class='line-number'>165</span>
+<span class='line-number'>166</span>
+<span class='line-number'>167</span>
+<span class='line-number'>168</span>
+<span class='line-number'>169</span>
+<span class='line-number'>170</span>
+<span class='line-number'>171</span>
+<span class='line-number'>172</span>
+<span class='line-number'>173</span>
+<span class='line-number'>174</span>
+<span class='line-number'>175</span>
+<span class='line-number'>176</span>
+<span class='line-number'>177</span>
+<span class='line-number'>178</span>
+<span class='line-number'>179</span>
+<span class='line-number'>180</span>
+<span class='line-number'>181</span>
+<span class='line-number'>182</span>
+<span class='line-number'>183</span>
+<span class='line-number'>184</span>
+<span class='line-number'>185</span>
+<span class='line-number'>186</span>
+<span class='line-number'>187</span>
+<span class='line-number'>188</span>
+<span class='line-number'>189</span>
+<span class='line-number'>190</span>
+<span class='line-number'>191</span>
+<span class='line-number'>192</span>
+<span class='line-number'>193</span>
+<span class='line-number'>194</span>
+<span class='line-number'>195</span>
+<span class='line-number'>196</span>
+<span class='line-number'>197</span>
+<span class='line-number'>198</span>
+<span class='line-number'>199</span>
+<span class='line-number'>200</span>
+<span class='line-number'>201</span>
+<span class='line-number'>202</span>
+<span class='line-number'>203</span>
+<span class='line-number'>204</span>
+<span class='line-number'>205</span>
+<span class='line-number'>206</span>
+<span class='line-number'>207</span>
+<span class='line-number'>208</span>
+<span class='line-number'>209</span>
+<span class='line-number'>210</span>
+<span class='line-number'>211</span>
+<span class='line-number'>212</span>
+<span class='line-number'>213</span>
+<span class='line-number'>214</span>
+<span class='line-number'>215</span>
+<span class='line-number'>216</span>
+<span class='line-number'>217</span>
+<span class='line-number'>218</span>
+<span class='line-number'>219</span>
+<span class='line-number'>220</span>
+<span class='line-number'>221</span>
+<span class='line-number'>222</span>
+<span class='line-number'>223</span>
+<span class='line-number'>224</span>
+<span class='line-number'>225</span>
+<span class='line-number'>226</span>
+<span class='line-number'>227</span>
+<span class='line-number'>228</span>
+<span class='line-number'>229</span>
+<span class='line-number'>230</span>
+<span class='line-number'>231</span>
+<span class='line-number'>232</span>
+<span class='line-number'>233</span>
+<span class='line-number'>234</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">com.google.common.collect.ImmutableSet</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.google.common.collect.Sets</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">java.util.Iterator</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">java.util.Set</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">java.util.TreeSet</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * This is an approximate histogram class</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ApproximateHistogram</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'>    <span class="kd">private</span> <span class="kd">final</span> <span class="n">TreeSet</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="n">heap</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="nf">ApproximateHistogram</span><span class="o">(</span><span class="kt">int</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">numPairs</span> <span class="o">=</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">heap</span> <span class="o">=</span> <span class="k">new</span> <span class="n">TreeSet</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="nf">ApproximateHistogram</span><span class="o">(</span><span class="n">TreeSet</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="n">heap</span><span class="o">,</span> <span class="kt">int</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">numPairs</span> <span class="o">=</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">heap</span> <span class="o">=</span> <span class="n">heap</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">Set</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="nf">heap</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="n">ImmutableSet</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">heap</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">update</span><span class="o">(</span><span class="n">CentroidPair</span> <span class="n">p</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">Iterator</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>        <span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">CentroidPair</span> <span class="n">cp</span> <span class="o">=</span> <span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">int</span> <span class="n">compare</span> <span class="o">=</span> <span class="n">Double</span><span class="o">.</span><span class="na">compare</span><span class="o">(</span><span class="n">cp</span><span class="o">.</span><span class="na">centroid</span><span class="o">,</span> <span class="n">p</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">compare</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">cp</span><span class="o">.</span><span class="na">count</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>                <span class="k">return</span><span class="o">;</span>
+</span><span class='line'>            <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">compare</span> <span class="o">==</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="k">break</span><span class="o">;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// there was no similar centroid, so let&#39;s add the point to the heap</span>
+</span><span class='line'>        <span class="n">heap</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">p</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">compress</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">compress</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&lt;=</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span><span class="o">;</span> <span class="c1">// compress only if needed</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">minDiff</span> <span class="o">=</span> <span class="n">Double</span><span class="o">.</span><span class="na">MAX_VALUE</span><span class="o">;</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">last</span> <span class="o">=</span> <span class="kc">null</span><span class="o">,</span> <span class="n">lastLast</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// [ ..., minA, minB, ... ] two consecutive pairs which centroid diff is the minimum</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">minA</span> <span class="o">=</span> <span class="kc">null</span><span class="o">,</span> <span class="n">minB</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">Iterator</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>        <span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">lastLast</span> <span class="o">=</span> <span class="n">last</span><span class="o">;</span>
+</span><span class='line'>            <span class="n">last</span> <span class="o">=</span> <span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">last</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastLast</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&lt;</span> <span class="n">minDiff</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                    <span class="n">minA</span> <span class="o">=</span> <span class="n">lastLast</span><span class="o">;</span>
+</span><span class='line'>                    <span class="n">minB</span> <span class="o">=</span> <span class="n">last</span><span class="o">;</span>
+</span><span class='line'>                    <span class="n">minDiff</span> <span class="o">=</span> <span class="n">diff</span><span class="o">;</span>
+</span><span class='line'>                <span class="o">}</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>            <span class="o">++</span><span class="n">i</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">repCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">+</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minB</span><span class="o">.</span><span class="na">count</span><span class="o">);</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">repCentroid</span> <span class="o">=</span> <span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">centroid</span> <span class="o">*</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">+</span> <span class="n">minB</span><span class="o">.</span><span class="na">centroid</span> <span class="o">*</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minB</span><span class="o">.</span><span class="na">count</span><span class="o">))</span> <span class="o">/</span> <span class="n">repCount</span><span class="o">;</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">replacementPair</span> <span class="o">=</span> <span class="k">new</span> <span class="n">CentroidPair</span><span class="o">(-</span><span class="n">repCount</span><span class="o">,</span> <span class="n">repCentroid</span><span class="o">);</span> <span class="c1">// store with negative sign the compressed entries</span>
+</span><span class='line'>        <span class="n">heap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">minA</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">heap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">minB</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">heap</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">replacementPair</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="n">ApproximateHistogram</span> <span class="nf">merge</span><span class="o">(</span><span class="n">ApproximateHistogram</span><span class="o">...</span> <span class="n">histograms</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">ApproximateHistogram</span> <span class="n">merged</span> <span class="o">=</span> <span class="n">histograms</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">histograms</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">merged</span> <span class="o">=</span> <span class="n">merge</span><span class="o">(</span><span class="n">merged</span><span class="o">,</span> <span class="n">histograms</span><span class="o">[</span><span class="n">i</span><span class="o">]);</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="n">merged</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="n">ApproximateHistogram</span> <span class="nf">merge</span><span class="o">(</span><span class="n">ApproximateHistogram</span> <span class="n">a</span><span class="o">,</span> <span class="n">ApproximateHistogram</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">biggestSize</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&gt;</span> <span class="n">biggestSize</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">biggestSize</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">TreeSet</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="n">mergedHeap</span> <span class="o">=</span> <span class="n">Sets</span><span class="o">.</span><span class="na">newTreeSet</span><span class="o">();</span>
+</span><span class='line'>        <span class="n">mergedHeap</span><span class="o">.</span><span class="na">addAll</span><span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">heap</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">mergedHeap</span><span class="o">.</span><span class="na">addAll</span><span class="o">(</span><span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kd">final</span> <span class="n">ApproximateHistogram</span> <span class="n">merged</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ApproximateHistogram</span><span class="o">(</span><span class="n">mergedHeap</span><span class="o">,</span> <span class="n">biggestSize</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// add the centroids of B to the merged (ignoring compression)</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">compressTimes</span> <span class="o">=</span> <span class="n">mergedHeap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">-</span> <span class="n">biggestSize</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">while</span> <span class="o">(</span><span class="n">compressTimes</span><span class="o">--</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">merged</span><span class="o">.</span><span class="na">compress</span><span class="o">();</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="n">merged</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">double</span> <span class="nf">countBelow</span><span class="o">(</span><span class="kt">double</span> <span class="n">cutPoint</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kd">final</span> <span class="kt">double</span> <span class="n">EPSILON</span> <span class="o">=</span> <span class="mf">0.00000001</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">heap</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">())</span> <span class="k">return</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">CentroidPair</span><span class="o">[]</span> <span class="n">heapPoints</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">toArray</span><span class="o">(</span><span class="k">new</span> <span class="n">CentroidPair</span><span class="o">[</span><span class="n">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()]);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">cutPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// there&#39;s a pair with the cutPoint as centroid</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">diff</span><span class="o">)</span> <span class="o">&lt;</span> <span class="n">EPSILON</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="k">return</span> <span class="n">j</span> <span class="o">+</span> <span class="o">((</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">count</span> <span class="o">:</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">);</span>
+</span><span class='line'>            <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="c1">// we already passed. it&#39;s somewhere between the last and this one</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="c1">// CASE: the cutPoint is before the first centroid point</span>
+</span><span class='line'>                <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                    <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="k">return</span> <span class="mf">0.0</span><span class="o">;</span> <span class="c1">// we are sure no entry was less than the first centroid</span>
+</span><span class='line'>                    <span class="k">return</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">)</span> <span class="o">*</span> <span class="n">cutPoint</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">centroid</span><span class="o">);</span><span class="c1">// the first pair is an average. do the calculation</span>
+</span><span class='line'>                <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="n">CentroidPair</span> <span class="n">lastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+</span><span class='line'>                <span class="n">CentroidPair</span> <span class="n">currentPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+</span><span class='line'>                <span class="kt">int</span> <span class="n">lastCount</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="c1">// if the last point is just an average point, discount it</span>
+</span><span class='line'>                <span class="n">j</span> <span class="o">-=</span> <span class="o">((</span><span class="n">lastCount</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">)</span> <span class="o">:</span> <span class="mi">0</span><span class="o">);</span> <span class="c1">// WHT?</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="n">lastCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="kt">double</span> <span class="n">mb</span> <span class="o">=</span> <span class="n">lastCount</span> <span class="o">+</span> <span class="o">(</span><span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">-</span> <span class="n">lastCount</span><span class="o">)</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>                <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="o">(</span><span class="n">lastCount</span> <span class="o">+</span> <span class="n">mb</span><span class="o">)</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">));</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="k">return</span> <span class="n">sum</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">j</span> <span class="o">+=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">);</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// some logic for the cases where b &gt; centroid[last]</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">lastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// last point is an average and there&#39;s more than one</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">count</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">);</span>
+</span><span class='line'>            <span class="n">CentroidPair</span> <span class="n">lastLastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">2</span><span class="o">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// calculate a virtual final point which is separated half the distance than the last one</span>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">distanceToPreviousPoint</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastLastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>            <span class="n">distanceToPreviousPoint</span> <span class="o">/=</span> <span class="mf">4.0</span><span class="o">;</span>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">finalCentroid</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">+</span> <span class="n">distanceToPreviousPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">finalCentroid</span> <span class="o">-</span> <span class="n">cutPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// count all!</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">j</span> <span class="o">-=</span> <span class="n">count</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="kt">double</span> <span class="n">trapezoidSum</span> <span class="o">=</span> <span class="n">count</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">distanceToPreviousPoint</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="k">return</span> <span class="n">j</span> <span class="o">+</span> <span class="n">trapezoidSum</span><span class="o">;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>            <span class="c1">// else return j!</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="n">j</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">double</span> <span class="nf">avg</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">for</span> <span class="o">(</span><span class="n">CentroidPair</span> <span class="n">centroidPair</span> <span class="o">:</span> <span class="n">heap</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="kt">int</span> <span class="n">absCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">centroidPair</span><span class="o">.</span><span class="na">count</span><span class="o">);</span>
+</span><span class='line'>            <span class="n">count</span> <span class="o">+=</span> <span class="n">absCount</span><span class="o">;</span>
+</span><span class='line'>            <span class="n">sum</span> <span class="o">+=</span> <span class="n">absCount</span> <span class="o">*</span> <span class="n">centroidPair</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="o">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">sum</span> <span class="o">/</span> <span class="n">count</span> <span class="o">:</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">count</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">sum</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">for</span> <span class="o">(</span><span class="n">CentroidPair</span> <span class="n">centroidPair</span> <span class="o">:</span> <span class="n">heap</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">sum</span> <span class="o">+=</span> <span class="n">centroidPair</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="k">return</span> <span class="n">sum</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">CentroidPair</span> <span class="kd">implements</span> <span class="n">Comparable</span><span class="o">&lt;</span><span class="n">CentroidPair</span><span class="o">&gt;</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">count</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">centroid</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kd">public</span> <span class="nf">CentroidPair</span><span class="o">(</span><span class="kt">int</span> <span class="n">count</span><span class="o">,</span> <span class="kt">double</span> <span class="n">centroid</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">this</span><span class="o">.</span><span class="na">count</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+</span><span class='line'>            <span class="k">this</span><span class="o">.</span><span class="na">centroid</span> <span class="o">=</span> <span class="n">centroid</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="kt">int</span> <span class="nf">compareTo</span><span class="o">(</span><span class="n">CentroidPair</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">Double</span><span class="o">.</span><span class="na">compare</span><span class="o">(</span><span class="k">this</span><span class="o">.</span><span class="na">centroid</span><span class="o">,</span> <span class="n">o</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="n">String</span> <span class="nf">toString</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="k">new</span> <span class="nf">StringBuilder</span><span class="o">(</span><span class="s">&quot;(&quot;</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">count</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">&quot;, &quot;</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">centroid</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">&quot;)&quot;</span><span class="o">).</span><span class="na">toString</span><span class="o">();</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Internally the histogram is represented by a set of points (count, centroid), ordered by it&rsquo;s centroid. When a new point is added, if the centroid already exists we increase the count number, otherwise we add the point with count 1 to the list.</p>
+
+<p>Each histogram has a limit of points to keep and when a new insert exceeds this limit, a compression takes place. The compression consists in merging the two consecutive points where the difference between its centroids is the lower. The two are replaced by a single point with centroid on a place nearer to the neighbor point that has more counts: if they have the same count, it would be on the middle. The count of the new point will be the sum of the two old ones.</p>
+
+<p>As Java doesn&rsquo;t have unsigned numeric types, this implementation exploits the signal in the count field to flag if that point has been originated from compression of two other or if it is from raw observations. This can help answering to questions like: how many values are below X? If the points have a positive count for every point whose centroid is below X, we can truly count them. If they are negative, we know that point is an approximation, so we calculate the count using the trapezoidal estimation of <a href="http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf">Ben-Haim and Tom-Tov</a>.  This gives more accurate results than assuming every point might be an approximation and requires no extra space in Java-based data structures.</p>
+
+<p>For merging more than one histogram, which happens when we want to combine results computed on different nodes. This is done by creating a big heap with the combined values of the histograms and applying compression on that heap, as described above, until the heap has the maximum number of points.</p>
+
+<p>For very disperse data, this data structure may yield bad approximations if the number of points is not high enough. This data structure is very flexible and it&rsquo;s easy to use it for streams with different distributions by just tuning the number of centroids we keep.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Going event-driven with Kafka in two weeks - Part II]]></title>
+    <link href="http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/"/>
+    <updated>2013-07-04T18:03:00+01:00</updated>
+    <id>http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii</id>
+    <content type="html"><![CDATA[<p>In the <a href="http://deorus.github.io/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/">first part</a>, I&rsquo;ve described the motivations and requirements for the transition into a event-driven architecture. In this post, I am going to talk about how to perform distributed counting and how Kafka partitioning is handy for this kind of task.</p>
+
+<h2>Online group-by operations</h2>
+
+<p>As mentioned on <a href="http://deorus.github.io/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/">part one</a>, each consumer will receive messages from a set of partitions in a way that each partition will have only one consumer. The subscriber process can then have a consumer stream per thread and can co-operate with other instances running on other machines by defining each consumer to belong to the same consumer group. There no gain on having the total number of threads in the consumer cluster higher than the number of partitions, as each partition will comunicate at most through one consumer stream.</p>
+
+<!-- more -->
+
+
+<p><img src="http://deorus.github.io/images/kafka_subscriber_cluster1.png" width="350" title="A Kafka stream with more than one partition" >
+<img src="http://deorus.github.io/images/kafka_subscriber_cluster2.png" width="350" title="A Kafka subscriber cluster with spare threads" ></p>
+
+<p>Each consumer thread receives a message from a partition. The message is parsed into a POJO that will be a key to a counting hash map.</p>
+
+<figure class='code'><figcaption><span>Parsing a message from Kafka stream. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">ConsumerIterator</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">[],</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">value</span> <span class="o">=</span> <span class="k">new</span> <span class="n">String</span><span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">().</span><span class="na">message</span><span class="o">());</span>
+</span><span class='line'>  <span class="kd">final</span> <span class="n">String</span><span class="o">[]</span> <span class="n">tokens</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="s">&quot;;&quot;</span><span class="o">,</span> <span class="o">-</span><span class="mi">1</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">// ...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The example above shows how to parse a message, assuming it&rsquo;s a comma-separated value string. To create a compatible system with the existing log based solution and for debugging purposes, we first adopt the old CSV as message format. However, other solutions exist such as <a href="https://code.google.com/p/kryo/">Kryo</a>, <a href="http://avro.apache.org/">Avro</a> and <a href="http://thrift.apache.org/">Thrift</a>.</p>
+
+<p>The parsed POJO is the counter key and it has a custom hashCode method implementation. The hashCode is invoked by the Java&rsquo;s HashMap and it uses the returning value to locate the value internally. When more than one entry exists with the same hashCode, the equals method is used to determine the equality to the query key.</p>
+
+<p>To aggregate the counts by a set of attributes, we can use the hashCode and equals methods. These methods must have a consistent behaviour considering two objects to be equal if the set of group-by attributes have identical values in both. The hashCode calculation has to take this values into account, as shown in the snippet below.</p>
+
+<figure class='code'><figcaption><span>Example of a GroupBy by hour and category. </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">org.apache.commons.lang3.builder.EqualsBuilder</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.commons.lang3.builder.HashCodeBuilder</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">SaleEventByHourAndCategory</span> <span class="kd">extends</span> <span class="n">SaleEvent</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">static</span> <span class="kd">final</span> <span class="n">TimeZone</span> <span class="n">GMT_TZ</span> <span class="o">=</span> <span class="n">TimeZone</span><span class="o">.</span><span class="na">getTimeZone</span><span class="o">(</span><span class="s">&quot;GMT:00&quot;</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">protected</span> <span class="n">Long</span> <span class="nf">getHour</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>      <span class="c1">// consider move this to a Util class</span>
+</span><span class='line'>      <span class="n">Calendar</span> <span class="n">calendar</span> <span class="o">=</span> <span class="n">Calendar</span><span class="o">.</span><span class="na">getInstance</span><span class="o">(</span><span class="n">GMT_TZ</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">setTime</span><span class="o">(</span><span class="k">new</span> <span class="n">Date</span><span class="o">(</span><span class="n">getUnixTimestamp</span><span class="o">()));</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">MINUTE</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">SECOND</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>      <span class="n">calendar</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">Calendar</span><span class="o">.</span><span class="na">MILLISECOND</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">return</span> <span class="n">Long</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">calendar</span><span class="o">.</span><span class="na">getTime</span><span class="o">().</span><span class="na">getTime</span><span class="o">());</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nd">@Override</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="kt">int</span> <span class="nf">hashCode</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">return</span> <span class="k">new</span> <span class="nf">HashCodeBuilder</span><span class="o">()</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getHour</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getCategoryId</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">hashCode</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nd">@Override</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span><span class="n">obj</span> <span class="k">instanceof</span> <span class="n">SaleEventByHourAndCategory</span> <span class="o">==</span> <span class="kc">false</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+</span><span class='line'>      <span class="o">}</span> <span class="k">if</span> <span class="o">(</span><span class="k">this</span> <span class="o">==</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+</span><span class='line'>      <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="kd">final</span> <span class="n">SaleEventByHourAndCategory</span> <span class="n">otherObject</span> <span class="o">=</span> <span class="o">(</span><span class="n">SaleEventByHourAndCategory</span><span class="o">)</span> <span class="n">obj</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">return</span> <span class="k">new</span> <span class="nf">EqualsBuilder</span><span class="o">()</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getHour</span><span class="o">(),</span> <span class="n">otherObject</span><span class="o">.</span><span class="na">getHour</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">getCategoryId</span><span class="o">(),</span> <span class="n">otherObject</span><span class="o">.</span><span class="na">getCategoryId</span><span class="o">())</span>
+</span><span class='line'>          <span class="o">.</span><span class="na">isEquals</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The implementation of hashCode and equals use the <a href="http://commons.apache.org/proper/commons-lang/">Apache Commons Lang</a> library.</p>
+
+<h2>Counter Map Implementations</h2>
+
+<p>Each consumer thread will count the events in a shared data structure, to avoid spending too much memory with multiple duplicated entries in each thread&rsquo;s counter map. <a href="http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ConcurrentHashMap.html">ConcurrentHashMap</a> is a native JVM implementation that aims to reduce contention by splitting the key space in blocks. Each block will have a lock to control the write accesses.</p>
+
+<p>Other alternative HashMap implementation is the <a href="http://www.cs.rice.edu/~javaplt/javadoc/concjunit4.7/org/cliffc/high_scale_lib/NonBlockingHashMap.html">NonBlockingHashMap</a>, written by <a href="http://www.azulsystems.com/">Azul System</a>&rsquo;s Dr. Cliff Click, is an implementation that doesn&rsquo;t assure full consistency ruturning only the result of the last completed update operation. This behaviour is lock free and leverage compare and set/swap operations to allow multiple update operations. A benchmark between both implementations can be found <a href="http://leapchasm.com/blog/2012/02/10/concurrent-hashmap-benchmark/">here</a>.</p>
+
+<h2>Aggregated Result Flushing</h2>
+
+<p>The computed operations, either counts, sums or averages are hold in each subscriber process&rsquo;s memory and must be flushed to a proper persistent storage.
+We decided to continue with MySQL to avoid porting all the existent visualization tools. In a scenario of multiple instances of the subscriber process, each instance will have a partial result of the aggregated operation. If there are two processes with 20 threads each, each one will have the count for the messages received from half the partitions. Because they only know part of the result, flushing must be done using an UPDATE SQL query or an INSERT in the case of non-existence of that key. To save the check of existence, an <a href="http://dev.mysql.com/doc/refman/5.0/en/insert-on-duplicate.html">INSERT ON DUPLICATE KEY UPDATE</a> is used.</p>
+
+<p><img src="http://deorus.github.io/images/kafka_results_flushing_flow.png" width="700" title="Data flow of aggregated operation results" ></p>
+
+<p>In the first experiments, the subscriber processes flushed the in-memory counts to the same database. However, some of these subscribers were consuming from a broker in Europe region and had to upload the results to a US datacenter-based MySQL instance. To optimize the flow, all the subscribers will act as producers and will publish their partial results into a separate topic. This topic will be read by a single flusher process.</p>
+
+<p>This change of approach improved the throughtput of MySQL ingestion, because less write transations fail. The flusher process executes transaction after transaction in batches of 2000 queries and has a consistent per batch execution time. The partial results publishing is done to the US broker using <a href="https://code.google.com/p/kryo/">Kryo</a> to serialize and Snappy to compress. This attempts to reduce both the bandwidth required and the latency time.</p>
+
+<p>In this post, I&rsquo;ve covered how to do group-by aggregation operations in-memory and temporarily flush them to a persistent engine, such as MySQL. In the next post I&rsquo;ll cover infrastructure matters and deployment of the Kafka stack in AWS.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Going event-driven with Kafka in two weeks - Part I]]></title>
+    <link href="http://deorus.github.io/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i/"/>
+    <updated>2013-06-28T00:47:00+01:00</updated>
+    <id>http://deorus.github.io/blog/2013/06/28/going-event-driven-with-kafka-in-two-weeks-part-i</id>
+    <content type="html"><![CDATA[<p>During the last couple weeks I&rsquo;ve been working on a project that involves the transformation of a batch-based data pipeline into an event-driven one.</p>
+
+<p>I am working in real-time advertisement industry and most of the reports generated require processing huge amounts of data. The reports are essentially counting events for traffic estimation or classification. However, counting a thousand events per second, in a distributed environment might not be as trivial as it seems.</p>
+
+<p>The old process ingested hourly logs, captured from some dozens of nodes every hour. Each node uploaded a compressed bulk of log files to AWS S3, and Hadoop jobs triggered every hour had to load them up again into HDFS. The whole time spent in this IO-dependent ETL process was considerably huge and the increasing amount of data was causing a delay of several hours to get reporting metrics ready.</p>
+
+<p>In real-time bidding, the reporting data of some hours ago might become totally useless for the current bidding decisions, as the market and the opportunities in inventory vary a lot, depending on the countries you serve ads and depending also on the time of the day.</p>
+
+<p>The latency and the time-based utility of reporting data motivated the change into an event-driven pipeline.</p>
+
+<!-- more -->
+
+
+<h2>Requirements</h2>
+
+<p>In order to keep business running, the new system had to be implemented in parallel with the batch pipeline. The first change was to gather data directly from each node into a message broker and have a set of consumers processing the data.</p>
+
+<p>In the first phase, messages could be simply gathered with a <code>tail -f</code> in the log files and the output piped with a message publisher application that reads them from the input stream.</p>
+
+<p>The message queue system had to be able to deliver messages with high-throughput rather than low-latency and had to persist them to disk, as it was meant to replace the file based logging pipeline. Logging to network inside a datacenter can be faster than logging to disk (see <a href="https://gist.github.com/hellerbarde/2843375" title="Latency numbers every programmer should know">Latency numbers every programmer should know</a>, by Peter Norvig and Jeff Dean).</p>
+
+<p>Message global ordering wasn&rsquo;t really a requirement for the volume estimation processing, as each opportunity event contains a timestamp we can use to group counts by.</p>
+
+<p>For volume estimation, data loss up to some seconds is also acceptable in a failure scenario, as even if we miscount some events, most of them get will be counted.</p>
+
+<h2>Apache Kafka</h2>
+
+<p>After analysing the most popular, open-source available queueing solutions I could conclude that most of them focused on low-latency message deliver and just a few supported persistence. <a href="http://kafka.apache.org/" title="Apache Kafka">Apache Kafka</a> was the one that seemed to match our requirements.</p>
+
+<p>Kafka started as a LinkedIn in-house project, developed when the company was passing through a similar period of transition when pure batch processing started to affect the feedback loop and become a pain to the business.</p>
+
+<p>Kafka is a distributed message publishing/subscribing system of one or more brokers, each one with a set of zero or more partitions for each existing topic. Kafka persists periodically messages to disk, so in case of failure the last ones might get loss. This speeds up the publishing operation, as publishers don&rsquo;t need to wait until that data gets written to disk.</p>
+
+<p>When a publisher connects to a Kafka cluster, it queries which partitions exist for the topic and which nodes are responsible for each partition.</p>
+
+<p>Each publisher then acts like a card dealer in a poker game, handing messages to partitions as if they were cards. They assign messages to each partition using an hashing algorithm and deliver them to the broker responsible for that partition.</p>
+
+<p>For each partition, a broker stores the incoming messages with monoticaly increasing order identifiers and persists the &ldquo;deck&rdquo; to disk using a data structure with access complexity of O(1).</p>
+
+<p>A subscriber is a set of co-operating processes that belong to a consumer-group. Each consumer in the group get assigned a set of partitions to consume from. One key difference to other message queue systems is that each partition is consumed by the same consumer and this allows each consumer to track their progress on consumption on the thread and update it asynchronously.</p>
+
+<p>This simplifies the subscription process as the consumer doesn&rsquo;t need to reply with acknowledgement responses to each &ldquo;card&rdquo; it gets from the partition &ldquo;deck&rdquo; and the broker doesn&rsquo;t need to store for each message, if it was processed or not. Consumers keep track on what they consume and store <em>asynchronously</em> in Zookeeper. This is the key point that allows high-throughput. In case of consumer failure, a new process can start from the last saved point, eventually processing the last messages twice.</p>
+
+<p>The broker subscription API requires the identifier of the last message a consumer had from a given partition and starts to stream from that point on. The constant access time data structures on disk play an important role here to reduce disk seeks.</p>
+
+<p>Both consumer groups and brokers are dynamic, so if the amount of incoming messages increase, you can just add new broker nodes to the list and each of them will contain a defined number of partitions for each topic. According to the number of partitions you have, you can also spawn more subscriber processes if the ones you have can&rsquo;t handle the new partition&rsquo;s messages in a reasonable time.</p>
+
+<p>This kind of flexibility by design reduces the random IO in the broker machines and make the whole Kafka system a very stable one in heavy-load production environments.</p>
+
+<p>In the <a href="http://deorus.github.io/blog/2013/07/04/going-event-driven-with-kafka-in-two-weeks-part-ii/">part II</a> of the series, I will write how consumers perform the distributed count of events.</p>
+
+<!-- and in the [third part](/blog) I will talk a little bit about infrastructure and deployment of Kafka stack on AWS. -->
+
+]]></content>
+  </entry>
+  
+</feed>

@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: data-structures | Alex Rodrigues]]></title>
+  <link href="http://deorus.github.io/blog/categories/data-structures/atom.xml" rel="self"/>
+  <link href="http://deorus.github.io/"/>
+  <updated>2015-03-05T09:13:58+00:00</updated>
+  <id>http://deorus.github.io/</id>
+  <author>
+    <name><![CDATA[Alex Rodrigues]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Computing Approximate Histograms in Parallel]]></title>
+    <link href="http://deorus.github.io/blog/2014/02/12/computing-approximate-histograms-in-parallel/"/>
+    <updated>2014-02-12T18:03:00+00:00</updated>
+    <id>http://deorus.github.io/blog/2014/02/12/computing-approximate-histograms-in-parallel</id>
+    <content type="html"><![CDATA[<p>Today I&rsquo;m going to write a little about Approximate Histograms and how can they be used to get more insight on streamed big data feeds. I also provide a simple Java implementation and explain some parts of it.</p>
+
+<p>Most of the common aggregation operations like counting and summing can be performed in parallel, as long there is a reduce phase where the result on each node can be combined. However, this is not very trivial for calculating histograms, as we need all the data on one dimension so that we can represent it in an histogram.</p>
+
+<p>Having the data being processed by multiple nodes, each node is only able to construct an histogram of the partial data it receives. <a href="http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf">Ben-Haim and Tom-Tov</a> presented a solution that uses an heap-based data structure to represent the data and a merge algorithm that allows to merge the data structures computed on different nodes into one that is an approximate histogram of all the dataset.</p>
+
+<p>This technique has been applied by <a href="http://metamarkets.com/2013/histograms/">MetaMarkets</a> with good accuracy for most of what an histogram can tell us about the data distribution: calculating the average and counting the quartiles and total number of data/events.</p>
+
+<!-- more -->
+
+
+<p>I took the liberty of doing a simple implementation of it, that is now being used in production for some months now:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>ApproximateHistogram.java </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+<span class='line-number'>122</span>
+<span class='line-number'>123</span>
+<span class='line-number'>124</span>
+<span class='line-number'>125</span>
+<span class='line-number'>126</span>
+<span class='line-number'>127</span>
+<span class='line-number'>128</span>
+<span class='line-number'>129</span>
+<span class='line-number'>130</span>
+<span class='line-number'>131</span>
+<span class='line-number'>132</span>
+<span class='line-number'>133</span>
+<span class='line-number'>134</span>
+<span class='line-number'>135</span>
+<span class='line-number'>136</span>
+<span class='line-number'>137</span>
+<span class='line-number'>138</span>
+<span class='line-number'>139</span>
+<span class='line-number'>140</span>
+<span class='line-number'>141</span>
+<span class='line-number'>142</span>
+<span class='line-number'>143</span>
+<span class='line-number'>144</span>
+<span class='line-number'>145</span>
+<span class='line-number'>146</span>
+<span class='line-number'>147</span>
+<span class='line-number'>148</span>
+<span class='line-number'>149</span>
+<span class='line-number'>150</span>
+<span class='line-number'>151</span>
+<span class='line-number'>152</span>
+<span class='line-number'>153</span>
+<span class='line-number'>154</span>
+<span class='line-number'>155</span>
+<span class='line-number'>156</span>
+<span class='line-number'>157</span>
+<span class='line-number'>158</span>
+<span class='line-number'>159</span>
+<span class='line-number'>160</span>
+<span class='line-number'>161</span>
+<span class='line-number'>162</span>
+<span class='line-number'>163</span>
+<span class='line-number'>164</span>
+<span class='line-number'>165</span>
+<span class='line-number'>166</span>
+<span class='line-number'>167</span>
+<span class='line-number'>168</span>
+<span class='line-number'>169</span>
+<span class='line-number'>170</span>
+<span class='line-number'>171</span>
+<span class='line-number'>172</span>
+<span class='line-number'>173</span>
+<span class='line-number'>174</span>
+<span class='line-number'>175</span>
+<span class='line-number'>176</span>
+<span class='line-number'>177</span>
+<span class='line-number'>178</span>
+<span class='line-number'>179</span>
+<span class='line-number'>180</span>
+<span class='line-number'>181</span>
+<span class='line-number'>182</span>
+<span class='line-number'>183</span>
+<span class='line-number'>184</span>
+<span class='line-number'>185</span>
+<span class='line-number'>186</span>
+<span class='line-number'>187</span>
+<span class='line-number'>188</span>
+<span class='line-number'>189</span>
+<span class='line-number'>190</span>
+<span class='line-number'>191</span>
+<span class='line-number'>192</span>
+<span class='line-number'>193</span>
+<span class='line-number'>194</span>
+<span class='line-number'>195</span>
+<span class='line-number'>196</span>
+<span class='line-number'>197</span>
+<span class='line-number'>198</span>
+<span class='line-number'>199</span>
+<span class='line-number'>200</span>
+<span class='line-number'>201</span>
+<span class='line-number'>202</span>
+<span class='line-number'>203</span>
+<span class='line-number'>204</span>
+<span class='line-number'>205</span>
+<span class='line-number'>206</span>
+<span class='line-number'>207</span>
+<span class='line-number'>208</span>
+<span class='line-number'>209</span>
+<span class='line-number'>210</span>
+<span class='line-number'>211</span>
+<span class='line-number'>212</span>
+<span class='line-number'>213</span>
+<span class='line-number'>214</span>
+<span class='line-number'>215</span>
+<span class='line-number'>216</span>
+<span class='line-number'>217</span>
+<span class='line-number'>218</span>
+<span class='line-number'>219</span>
+<span class='line-number'>220</span>
+<span class='line-number'>221</span>
+<span class='line-number'>222</span>
+<span class='line-number'>223</span>
+<span class='line-number'>224</span>
+<span class='line-number'>225</span>
+<span class='line-number'>226</span>
+<span class='line-number'>227</span>
+<span class='line-number'>228</span>
+<span class='line-number'>229</span>
+<span class='line-number'>230</span>
+<span class='line-number'>231</span>
+<span class='line-number'>232</span>
+<span class='line-number'>233</span>
+<span class='line-number'>234</span>
+<span class='line-number'>235</span>
+<span class='line-number'>236</span>
+<span class='line-number'>237</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">com.google.common.collect.ImmutableSet</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.google.common.collect.Sets</span><span class="o">;&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="kn">import</span> <span class="nn">java.util.Iterator</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">java.util.Set</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">java.util.TreeSet</span><span class="o">;&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;/&lt;</span><span class="n">em</span><span class="o">&gt;*</span>
+</span><span class='line'> <span class="o">*</span> <span class="n">This</span> <span class="n">is</span> <span class="n">an</span> <span class="n">approximate</span> <span class="n">histogram</span> <span class="kd">class</span>
+</span><span class='line'> <span class="err">&lt;/</span><span class="nc">em</span><span class="o">&gt;/</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ApproximateHistogram</span> <span class="o">{&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="kd">final</span> <span class="n">TreeSet</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">heap</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="nf">ApproximateHistogram</span><span class="o">(</span><span class="kt">int</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">numPairs</span> <span class="o">=</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">heap</span> <span class="o">=</span> <span class="k">new</span> <span class="n">TreeSet</span><span class="o">();</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="nf">ApproximateHistogram</span><span class="o">(</span><span class="n">TreeSet</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">heap</span><span class="o">,</span> <span class="kt">int</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">numPairs</span> <span class="o">=</span> <span class="n">numPairs</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">heap</span> <span class="o">=</span> <span class="n">heap</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="n">Set</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">heap</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">ImmutableSet</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">heap</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">update</span><span class="o">(</span><span class="n">CentroidPair</span> <span class="n">p</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">Iterator</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>    <span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">cp</span> <span class="o">=</span> <span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">compare</span> <span class="o">=</span> <span class="n">Double</span><span class="o">.</span><span class="na">compare</span><span class="o">(</span><span class="n">cp</span><span class="o">.</span><span class="na">centroid</span><span class="o">,</span> <span class="n">p</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">compare</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">cp</span><span class="o">.</span><span class="na">count</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>            <span class="k">return</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">compare</span> <span class="o">==</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">break</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// there was no similar centroid, so let&#39;s add the point to the heap</span>
+</span><span class='line'>    <span class="n">heap</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">p</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">compress</span><span class="o">();</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">compress</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;=</span> <span class="n">numPairs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span><span class="o">;</span> <span class="c1">// compress only if needed</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>    <span class="kt">double</span> <span class="n">minDiff</span> <span class="o">=</span> <span class="n">Double</span><span class="o">.</span><span class="na">MAX_VALUE</span><span class="o">;</span>
+</span><span class='line'>    <span class="n">CentroidPair</span> <span class="n">last</span> <span class="o">=</span> <span class="kc">null</span><span class="o">,</span> <span class="n">lastLast</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// [ ..., minA, minB, ... ] two consecutive pairs which centroid diff is the minimum</span>
+</span><span class='line'>    <span class="n">CentroidPair</span> <span class="n">minA</span> <span class="o">=</span> <span class="kc">null</span><span class="o">,</span> <span class="n">minB</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">Iterator</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+</span><span class='line'>    <span class="k">while</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">lastLast</span> <span class="o">=</span> <span class="n">last</span><span class="o">;</span>
+</span><span class='line'>        <span class="n">last</span> <span class="o">=</span> <span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">last</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastLast</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="n">minDiff</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">minA</span> <span class="o">=</span> <span class="n">lastLast</span><span class="o">;</span>
+</span><span class='line'>                <span class="n">minB</span> <span class="o">=</span> <span class="n">last</span><span class="o">;</span>
+</span><span class='line'>                <span class="n">minDiff</span> <span class="o">=</span> <span class="n">diff</span><span class="o">;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="o">++</span><span class="n">i</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">repCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">+</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minB</span><span class="o">.</span><span class="na">count</span><span class="o">);</span>
+</span><span class='line'>    <span class="kt">double</span> <span class="n">repCentroid</span> <span class="o">=</span> <span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">centroid</span> <span class="o">*</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minA</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">+</span> <span class="n">minB</span><span class="o">.</span><span class="na">centroid</span> <span class="o">*</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">minB</span><span class="o">.</span><span class="na">count</span><span class="o">))</span> <span class="o">/</span> <span class="n">repCount</span><span class="o">;</span>
+</span><span class='line'>    <span class="n">CentroidPair</span> <span class="n">replacementPair</span> <span class="o">=</span> <span class="k">new</span> <span class="n">CentroidPair</span><span class="o">(-</span><span class="n">repCount</span><span class="o">,</span> <span class="n">repCentroid</span><span class="o">);</span> <span class="c1">// store with negative sign the compressed entries</span>
+</span><span class='line'>    <span class="n">heap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">minA</span><span class="o">);</span>
+</span><span class='line'>    <span class="n">heap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">minB</span><span class="o">);</span>
+</span><span class='line'>    <span class="n">heap</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">replacementPair</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="n">ApproximateHistogram</span> <span class="nf">merge</span><span class="o">(</span><span class="n">ApproximateHistogram</span><span class="o">...</span> <span class="n">histograms</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">ApproximateHistogram</span> <span class="n">merged</span> <span class="o">=</span> <span class="n">histograms</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="n">histograms</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">merged</span> <span class="o">=</span> <span class="n">merge</span><span class="o">(</span><span class="n">merged</span><span class="o">,</span> <span class="n">histograms</span><span class="o">[</span><span class="n">i</span><span class="o">]);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">merged</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="n">ApproximateHistogram</span> <span class="nf">merge</span><span class="o">(</span><span class="n">ApproximateHistogram</span> <span class="n">a</span><span class="o">,</span> <span class="n">ApproximateHistogram</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">biggestSize</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">biggestSize</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">biggestSize</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">TreeSet</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">mergedHeap</span> <span class="o">=</span> <span class="n">Sets</span><span class="o">.</span><span class="na">newTreeSet</span><span class="o">();</span>
+</span><span class='line'>    <span class="n">mergedHeap</span><span class="o">.</span><span class="na">addAll</span><span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">heap</span><span class="o">);</span>
+</span><span class='line'>    <span class="n">mergedHeap</span><span class="o">.</span><span class="na">addAll</span><span class="o">(</span><span class="n">b</span><span class="o">.</span><span class="na">heap</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">final</span> <span class="n">ApproximateHistogram</span> <span class="n">merged</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ApproximateHistogram</span><span class="o">(</span><span class="n">mergedHeap</span><span class="o">,</span> <span class="n">biggestSize</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// add the centroids of B to the merged (ignoring compression)</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">compressTimes</span> <span class="o">=</span> <span class="n">mergedHeap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">-</span> <span class="n">biggestSize</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">while</span> <span class="o">(</span><span class="n">compressTimes</span><span class="o">--</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">merged</span><span class="o">.</span><span class="na">compress</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">merged</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kt">double</span> <span class="nf">countBelow</span><span class="o">(</span><span class="kt">double</span> <span class="n">cutPoint</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">final</span> <span class="kt">double</span> <span class="n">EPSILON</span> <span class="o">=</span> <span class="mf">0.00000001</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">heap</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">())</span> <span class="k">return</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">CentroidPair</span><span class="o">[]</span> <span class="n">heapPoints</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="na">toArray</span><span class="o">(</span><span class="k">new</span> <span class="n">CentroidPair</span><span class="o">[</span><span class="n">heap</span><span class="o">.</span><span class="na">size</span><span class="o">()]);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">cutPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// there&#39;s a pair with the cutPoint as centroid</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">diff</span><span class="o">)</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="n">EPSILON</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">j</span> <span class="o">+</span> <span class="o">((</span><span class="n">count</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">count</span> <span class="o">:</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">);</span>
+</span><span class='line'>        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="c1">// we already passed. it&#39;s somewhere between the last and this one</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// CASE: the cutPoint is before the first centroid point</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="k">return</span> <span class="mf">0.0</span><span class="o">;</span> <span class="c1">// we are sure no entry was less than the first centroid</span>
+</span><span class='line'>                <span class="k">return</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">)</span> <span class="o">*</span> <span class="n">cutPoint</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">].</span><span class="na">centroid</span><span class="o">);</span><span class="c1">// the first pair is an average. do the calculation</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">CentroidPair</span> <span class="n">lastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+</span><span class='line'>            <span class="n">CentroidPair</span> <span class="n">currentPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+</span><span class='line'>            <span class="kt">int</span> <span class="n">lastCount</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// if the last point is just an average point, discount it</span>
+</span><span class='line'>            <span class="n">j</span> <span class="o">-=</span> <span class="o">((</span><span class="n">lastCount</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">)</span> <span class="o">:</span> <span class="mi">0</span><span class="o">);</span> <span class="c1">// WHT?</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">lastCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">mb</span> <span class="o">=</span> <span class="n">lastCount</span> <span class="o">+</span> <span class="o">(</span><span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">count</span><span class="o">)</span> <span class="o">-</span> <span class="n">lastCount</span><span class="o">)</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="o">(</span><span class="n">lastCount</span> <span class="o">+</span> <span class="n">mb</span><span class="o">)</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="o">(</span><span class="n">currentPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">));</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">return</span> <span class="n">sum</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">lastCount</span><span class="o">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">j</span> <span class="o">+=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// some logic for the cases where b &amp;gt; centroid[last]</span>
+</span><span class='line'>    <span class="n">CentroidPair</span> <span class="n">lastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// last point is an average and there&#39;s more than one</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span> <span class="mi">0</span> <span class="o">&amp;</span><span class="n">amp</span><span class="o">;&amp;</span><span class="n">amp</span><span class="o">;</span> <span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">count</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">count</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">CentroidPair</span> <span class="n">lastLastPoint</span> <span class="o">=</span> <span class="n">heapPoints</span><span class="o">[</span><span class="n">heapPoints</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">2</span><span class="o">];</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// calculate a virtual final point which is separated half the distance than the last one</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">distanceToPreviousPoint</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">-</span> <span class="n">lastLastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>        <span class="n">distanceToPreviousPoint</span> <span class="o">/=</span> <span class="mf">4.0</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">finalCentroid</span> <span class="o">=</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span> <span class="o">+</span> <span class="n">distanceToPreviousPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">double</span> <span class="n">diff</span> <span class="o">=</span> <span class="n">finalCentroid</span> <span class="o">-</span> <span class="n">cutPoint</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// count all!</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">diff</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">j</span> <span class="o">-=</span> <span class="n">count</span> <span class="o">/</span> <span class="mf">2.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">double</span> <span class="n">trapezoidSum</span> <span class="o">=</span> <span class="n">count</span> <span class="o">*</span> <span class="o">(</span><span class="n">cutPoint</span> <span class="o">-</span> <span class="n">lastPoint</span><span class="o">.</span><span class="na">centroid</span><span class="o">)</span> <span class="o">/</span> <span class="o">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">distanceToPreviousPoint</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">return</span> <span class="n">j</span> <span class="o">+</span> <span class="n">trapezoidSum</span><span class="o">;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="c1">// else return j!</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">j</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kt">double</span> <span class="nf">avg</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>    <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="o">(</span><span class="n">CentroidPair</span> <span class="n">centroidPair</span> <span class="o">:</span> <span class="n">heap</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">absCount</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">centroidPair</span><span class="o">.</span><span class="na">count</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">count</span> <span class="o">+=</span> <span class="n">absCount</span><span class="o">;</span>
+</span><span class='line'>        <span class="n">sum</span> <span class="o">+=</span> <span class="n">absCount</span> <span class="o">*</span> <span class="n">centroidPair</span><span class="o">.</span><span class="na">centroid</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="o">(</span><span class="n">count</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">sum</span> <span class="o">/</span> <span class="n">count</span> <span class="o">:</span> <span class="mf">0.0</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kt">int</span> <span class="nf">count</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">sum</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">for</span> <span class="o">(</span><span class="n">CentroidPair</span> <span class="n">centroidPair</span> <span class="o">:</span> <span class="n">heap</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">sum</span> <span class="o">+=</span> <span class="n">centroidPair</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">sum</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">CentroidPair</span> <span class="kd">implements</span> <span class="n">Comparable</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">CentroidPair</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">count</span><span class="o">;</span>
+</span><span class='line'>    <span class="kt">double</span> <span class="n">centroid</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="nf">CentroidPair</span><span class="o">(</span><span class="kt">int</span> <span class="n">count</span><span class="o">,</span> <span class="kt">double</span> <span class="n">centroid</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">count</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">this</span><span class="o">.</span><span class="na">centroid</span> <span class="o">=</span> <span class="n">centroid</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">compareTo</span><span class="o">(</span><span class="n">CentroidPair</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="n">Double</span><span class="o">.</span><span class="na">compare</span><span class="o">(</span><span class="k">this</span><span class="o">.</span><span class="na">centroid</span><span class="o">,</span> <span class="n">o</span><span class="o">.</span><span class="na">centroid</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">String</span> <span class="nf">toString</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="k">new</span> <span class="nf">StringBuilder</span><span class="o">(</span><span class="s">&quot;(&quot;</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">count</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">&quot;, &quot;</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">centroid</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">&quot;)&quot;</span><span class="o">).</span><span class="na">toString</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>Internally the histogram is represented by a set of points (count, centroid), ordered by it&rsquo;s centroid. When a new point is added, if the centroid already exists we increase the count number, otherwise we add the point with count 1 to the list.</p>
+
+<p>Each histogram has a limit of points to keep and when a new insert exceeds this limit, a compression takes place. The compression consists in merging the two consecutive points where the difference between its centroids is the lower. The two are replaced by a single point with centroid on a place nearer to the neighbor point that has more counts: if they have the same count, it would be on the middle. The count of the new point will be the sum of the two old ones.</p>
+
+<p>As Java doesn&rsquo;t have unsigned numeric types, this implementation exploits the signal in the count field to flag if that point has been originated from compression of two other or if it is from raw observations. This can help answering to questions like: how many values are below X? If the points have a positive count for every point whose centroid is below X, we can truly count them. If they are negative, we know that point is an approximation, so we calculate the count using the trapezoidal estimation of <a href="http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf">Ben-Haim and Tom-Tov</a>.  This gives more accurate results than assuming every point might be an approximation and requires no extra space in Java-based data structures.</p>
+
+<p>For merging more than one histogram, which happens when we want to combine results computed on different nodes. This is done by creating a big heap with the combined values of the histograms and applying compression on that heap, as described above, until the heap has the maximum number of points.</p>
+
+<p>For very disperse data, this data structure may yield bad approximations if the number of points is not high enough. This data structure is very flexible and it&rsquo;s easy to use it for streams with different distributions by just tuning the number of centroids we keep.</p>
+]]></content>
+  </entry>
+  
+</feed>
